@@ -92,40 +92,16 @@ model.ssfun  = ssfun;
 model.sigma2 = mse; % (initial) error variance from residuals of the lsq fit
 
 %%
-% If we want to sample the error variance sigma2 as an extra model
-% parameter, we need to set a prior distribution for it. A convenient
-% choice is the conjugate inverse chi-squared distribution, which
-% allows Gibbs sampling step for sigma2 after every
-% Metropolis-Hastings update for the other parameters. This is
-% acchieved by |options.updatesigma=1|, below. The default prior is
-% uninformative, but we can set the prior parameters with the
-% following options. Option |model.N| for the number of observatios is
-% needed for 'updatesigma', if it is not given, the code tries to
-% guess |N| from the data.
+function [results, acceptance] = MCMC_function(mean_list, var_list, prior_mean, prior_var)
+    theta = [10, 0.05, 3.6, 0.6];
+    
+    intfun1 = @(tau, theta) gampdf(tau, theta(3), 1/theta(4)) .* exp(theta(2)* tau);
+    modelfun = @(t,theta) theta(1)/theta(2) * (gamcdf(t, theta(3), 1/theta(4)) - exp(-theta(2) * t) .* integral(@(tau) intfun1(tau,theta), 0, t));
+    likelihood = prod(normpdf(data, mean_list, var_list));
+    
+    
+end
 
-model.N = length(data.ydata);  % total number of observations
-model.S20 = model.sigma2;      % prior mean for sigma2
-model.N0  = 4;                 % prior accuracy for sigma2
-
-%%
-% The |options| structure has settings for the MCMC run. We need at
-% least the number of simulations in |nsimu|. Here we also set the
-% option |updatesigma| to allow automatic sampling and estimation of the
-% error variance. The option |qcov| sets the initial covariance for
-% the Gaussian proposal density of the MCMC sampler.
-
-options.nsimu = 4000;
-options.updatesigma = 1;
-options.qcov = tcov; % covariance from the initial fit
-
-%%
-
-intfun1 = @(tau, theta) gampdf(tau, theta(3), 1/theta(4)) .* exp(theta(2)* tau);
-
-modelfun = @(t,theta) theta(1)/theta(2) * (gamcdf(t, theta(3), 1/theta(4)) - exp(-theta(2) * t) .* integral(@(tau) intfun1(tau,theta), 0, t));
-
-likelihood = prod(normpdf(data, mean_formula, var1));
-posterior = 
 
 
 
