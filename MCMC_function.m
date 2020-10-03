@@ -1,107 +1,69 @@
-%%
-clear; clc;
+function [results, acceptance] = MCMC_function(data, timespan, var_list, prior_mean, prior_var)
+%prod(normpdf(data, mean_list, var_list));
+% timespan must be positive. i.e., timespan(1) > 0;
+theta_init = [5, 0.1, 3.6, 2];
+burn = 0;
+thin_rate = 1;
+eff_num = 10;
+total_num = burn + thin_rate * eff_num;
 
-%%
-maxT = 150;
-data.time= (0:maxT)';   % x (mg / L COD) 
-data.xdata = [0   0   1   2   4  11  16  22  30  36  42  46  57  64  74  78  84  89  93  94 104 109 118 122 125 128 138 138 145 148 153 155 150 153 153 157 158 155 160 171 183 188 191 190 191 189 192 191 194 202 191 187 191 193 190 190 187 178 183 179 170 171 177 177 179 184 186 180 178 182 183 184 185 181 192 187 185 181 185 190 190 187 190 181 182 186 185 182 187 188 196 196 190 193 199 200 205 203 209 209 204 205 206 215 216 224 230 226 231 233 232 235 241 237 237 228 225 215 221 219 219 214 214 214 218 214 212 214 214 213 217 213 213 211 221 220 222 216 216 222 217 223 215 212 203 204 203 207 207 204 199]'; % y (1 / h) 
+MCMC_sample = zeros(total_num, length(theta_init));
+update_matrix = zeros(total_num, length(theta_init));
 
-%%
-% Here is a plot of the data set.
-figure(1); clf
-plot(data.time,data.xdata,'s');
-% xlim([0 maxT]); 
-xlabel('time [min]'); ylabel('X(t) [number]');
+MCMC_sample(1,:) = theta_init;
+update_matrix(2:end,1) = 1;
 
-%%
-
-theta = [10, 0.05, 3.6, 0.6];
-
-
-% theta(1): lambda_p, the birth rate of X
-% theta(2): lambda_d, the death rate of X
-% theta(3): alpha_X, the shape parameter of time delay gamma distribution of X
-% theta(4): beta_X, the rate parameter of time delay gamma distribution of X
-
-intfun1 = @(tau, theta) gampdf(tau, theta(3), 1/theta(4)) .* exp(theta(2)* tau);
-
-modelfun = @(t,theta) theta(1)/theta(2) * (gamcdf(t, theta(3), 1/theta(4)) - exp(-theta(2) * t) .* integral(@(tau) intfun1(tau,theta), 0, t));
-
-% modelfun = @(x,theta) theta(1)*x./(theta(2)+x);
-
-ssfun    = @(theta,data) sum((data.xdata - modelfun(data.time,theta)).^2);
-
-% plot(modelfun(data.xdata,[200 10]))
-% hold on
-% plot(data.xdata, data.ydata, 's');
-%% 
-
-fitted_value = zeros(size(data.time));
-for tt = 1:length(data.time)
-     fitted_value(tt) = modelfun(data.time(tt), theta);
+for rep = 2:total_num
+    
+    % Direct sampling for theta(1);
+    mean_trj1 = mean_trajectory(timespan, [1 MCMC_sample(rep-1, 2) MCMC_sample(rep-1, 3) MCMC_sample(rep-1, 4)]);
+    
+    post_var = 1 / (sum(mean_trj1.^2 ./ var_list) + prior_var(1)^(-1));
+    post_mean = post_var * (sum(data .* mean_trj1 ./ var_list) + prior_mean(1)/prior_var(1));
+    
+    MCMC_sample(rep, 1) = normrnd(post_mean, post_var);
+    
+    % MCMC for theta(2): decay rate of X(t);
+    % Random walk Metropolis algorithm (use normal proposal, symmetric)
+    prop_mean2 = MCMC_sample(rep-1,2);
+    prop_var2 = 0.01; % tune this parameter
+    
+    % a candidate for the next theta(2)
+    
+    theta2_cand = normrnd(prop_mean2, sqrt(prop_var2))
+    if theta2_cand > 0
+        gamma_pri_alpha_2 = prior_mean(2)^2 / prior_var(2);
+        gamma_pri_beta_2 = prior_var(2) / prior_mean(2);
+        
+        log_pri = log(gampdf(MCMC_sample(rep-1, 2), gamma_pri_alpha_2, gamma_pri_beta_2));
+        log_pri_st = log(gampdf(theta2_cand, gamma_pri_alpha_2, gamma_pri_beta_2));
+        
+        mean_trj2 = mean_trajectory(timespan, [MCMC_sample(rep,1), MCMC_sample(rep-1, 2), MCMC_sample(rep-1, 3), MCMC_sample(rep-1, 4)]);
+        mean_trj2_st = mean_trajectory(timespan, [MCMC_sample(rep, 1), theta2_cand, MCMC_sample(rep-1, 3), MCMC_sample(rep-1, 4)]);
+        
+        log_lik = sum(log(normpdf(data, mean_trj2, sqrt(var_list))));
+        log_lik_st = sum(log(normpdf(data, mean_trj2_st, sqrt(var_list))));
+        
+        acceptance_ratio2 = exp(log_pri_st - log_pri + log_lik_st - log_lik)
+        
+        if rand(1) < acceptance_ratio2
+            MCMC_sample(rep, 2) = theta2_cand;
+            update_matrix(rep,2) = 1;
+        else
+            MCMC_sample(rep, 2) = MCMC_sample(rep-1,2);
+        end
+    else
+        MCMC_sample(rep, 2) = MCMC_sample(rep-1, 2);
+    end
+    
+%     MCMC for theta(3) and theta(4): shape and rate parameters of delay
+%     distribution;
+    
+    MCMC_sample(rep,3) = MCMC_sample(rep-1,3);
+    MCMC_sample(rep,4) = MCMC_sample(rep-1,4);
+    if rem(rep,10) == 0
+       disp(rep) 
+    end
 end
 
-figure(2);
-plot(data.time,data.xdata,'s'); hold on;
-plot(data.time, fitted_value); hold off;
-% xlim([0 maxT]); 
-xlabel('time [min]'); ylabel('X(t) [number]');
-
-%% Initialization
-% In this case the initial values for the parameters are easy to guess
-% by looking at the plotted data. As we alredy have the sum-of-squares
-% function, we might as well try to minimize it using |fminsearch|.
-% [tmin,ssmin] = fminsearch(ssfun, [10;0.1;10;1], [] ,data);
-% n = length(data.xdata);
-% p = 2;
-% mse = ssmin/(n-p) % estimate for the error variance
-
-
-%%
-% The Jacobian matrix of the model function is easy to calculate so we use
-% it to produce estimate of the covariance of theta. This can be
-% used as the initial proposal covariance for the MCMC samples by
-% option |options.qcov| below.
-J = [data.xdata./(tmin(2)+data.xdata), ...
-     -tmin(1).*data.xdata./(tmin(2)+data.xdata).^2];
-tcov = inv(J'*J)*mse
-
-
-%%
-% We have to define three structures for inputs of the |mcmcrun|
-% function: parameter, model, and options.  Parameter structure has a
-% special form and it is constructed as Matlab cell array with curly
-% brackets. At least the structure has, for each parameter, the name
-% of the parameter and the initial value of it. Third optional
-% parameter given below is the minimal accepted value. With it we set
-% a positivity constraits for both of the parameters.
-
-params = {
-    {'theta1', tmin(1), 0}
-    {'theta2', tmin(2), 0}
-    {'theta3', tmin(3), 0}
-    {'theta4', tmin(4), 0}    
-    };
-
-%%
-% The |model| structure holds information about the model. Minimally
-% we need to set |ssfun| for the sum of squares function and the
-% initial estimate of the error variance |sigma2|.
-
-model.ssfun  = ssfun;
-model.sigma2 = mse; % (initial) error variance from residuals of the lsq fit
-
-%%
-function [results, acceptance] = MCMC_function(mean_list, var_list, prior_mean, prior_var)
-    theta = [10, 0.05, 3.6, 0.6];
-    
-    intfun1 = @(tau, theta) gampdf(tau, theta(3), 1/theta(4)) .* exp(theta(2)* tau);
-    modelfun = @(t,theta) theta(1)/theta(2) * (gamcdf(t, theta(3), 1/theta(4)) - exp(-theta(2) * t) .* integral(@(tau) intfun1(tau,theta), 0, t));
-    likelihood = prod(normpdf(data, mean_list, var_list));
-    
-    
 end
-
-
-
-
