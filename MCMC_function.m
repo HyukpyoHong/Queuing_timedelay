@@ -30,7 +30,7 @@ for rep = 2:total_num
     
     % a candidate for the next theta(2)
     
-    theta2_cand = normrnd(prop_mean2, sqrt(prop_var2))
+    theta2_cand = normrnd(prop_mean2, sqrt(prop_var2));
     if theta2_cand > 0
         gamma_pri_alpha_2 = prior_mean(2)^2 / prior_var(2);
         gamma_pri_beta_2 = prior_var(2) / prior_mean(2);
@@ -44,7 +44,7 @@ for rep = 2:total_num
         log_lik = sum(log(normpdf(data, mean_trj2, sqrt(var_list))));
         log_lik_st = sum(log(normpdf(data, mean_trj2_st, sqrt(var_list))));
         
-        acceptance_ratio2 = exp(log_pri_st - log_pri + log_lik_st - log_lik)
+        acceptance_ratio2 = exp(log_pri_st - log_pri + log_lik_st - log_lik);
         
         if rand(1) < acceptance_ratio2
             MCMC_sample(rep, 2) = theta2_cand;
