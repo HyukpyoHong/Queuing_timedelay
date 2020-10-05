@@ -15,6 +15,7 @@ update_matrix(2:end,1) = 1;
 
 for rep = 2:total_num
     
+    disp(111);
     % Direct sampling for theta(1);
     mean_trj1 = mean_trajectory(timespan, [1 MCMC_sample(rep-1, 2) MCMC_sample(rep-1, 3) MCMC_sample(rep-1, 4)]);
     
