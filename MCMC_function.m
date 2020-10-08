@@ -22,7 +22,7 @@ for rep = 2:total_num
     % MCMC for theta(2): decay rate of X(t);
     % Random walk Metropolis algorithm (use normal proposal, symmetric)
     prop_mean2 = MCMC_sample(rep-1,2);
-    prop_var2 = 0.00001; % tune this parameter
+    prop_var2 = 0.000001; % tune this parameter
     
     % a candidate for the next theta(2)
     
