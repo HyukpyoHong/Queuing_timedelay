@@ -34,9 +34,11 @@ for rep = 2:total_num
         
         log_pri = log(gampdf(MCMC_sample(rep-1, 2), gamma_pri_alpha_2, gamma_pri_beta_2));
         log_pri_st = log(gampdf(theta2_cand, gamma_pri_alpha_2, gamma_pri_beta_2));
+        % HH will manually write the code for the log of gamma 
         
         mean_trj2 = mean_trajectory(timespan, [MCMC_sample(rep,1), MCMC_sample(rep-1, 2), MCMC_sample(rep-1, 3), MCMC_sample(rep-1, 4)]);
         mean_trj2_st = mean_trajectory(timespan, [MCMC_sample(rep, 1), theta2_cand, MCMC_sample(rep-1, 3), MCMC_sample(rep-1, 4)]);
+        % HH will manually write the code for the log of gamma 
         
         log_lik = sum(log(normpdf(data, mean_trj2, sqrt(var_list))));
         log_lik_st = sum(log(normpdf(data, mean_trj2_st, sqrt(var_list))));
